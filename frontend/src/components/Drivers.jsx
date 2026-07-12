@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Drivers({ token, userRole }) {
+function Drivers({ token, userRole, hasPermission }) {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -157,7 +157,7 @@ function Drivers({ token, userRole }) {
     return { label: 'Valid', class: 'valid-badge', warning: false };
   };
 
-  const isAuthorized = userRole === 'Fleet Manager' || userRole === 'Safety Officer';
+  const isAuthorized = hasPermission ? hasPermission(userRole, 'Register/Edit Drivers Profiles') : (userRole === 'Fleet Manager' || userRole === 'Safety Officer');
 
   return (
     <div className="view-container">
@@ -180,7 +180,7 @@ function Drivers({ token, userRole }) {
       {!isAuthorized && (
         <div className="info-banner warning-banner">
           ⚠️ Compliance Note: You are logged in as a <strong>{userRole}</strong>. 
-          Only <strong>Fleet Managers</strong> and <strong>Safety Officers</strong> are authorized to register or update driver profiles.
+          Only <strong>authorized profiles</strong> with 'Register/Edit Drivers Profiles' permission can register or update driver profiles.
         </div>
       )}
 

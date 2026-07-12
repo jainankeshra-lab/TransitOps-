@@ -1,14 +1,43 @@
 import express from 'express';
 import Maintenance from '../models/Maintenance.js';
 import Vehicle from '../models/Vehicle.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, checkPermission } from '../middleware/auth.js';
+import RBAC from '../models/RBAC.js';
 
 const router = express.Router();
 
+// Helper middleware to check if user has read access to Maintenance
+const canReadMaintenance = async (req, res, next) => {
+  if (req.user.role === 'Financial Analyst' || req.user.role === 'Fleet Manager') {
+    return next();
+  }
+  
+  try {
+    const rbac = await RBAC.findOne({ key: 'current_matrix' });
+    if (rbac) {
+      const row = rbac.permissions.find(p => p.feature === 'Schedule Maintenance Logs');
+      const role = req.user.role;
+      const roleKey = 
+        role === 'Fleet Manager' ? 'manager' :
+        role === 'Driver' ? 'driver' :
+        role === 'Safety Officer' ? 'safety' :
+        role === 'Financial Analyst' ? 'analyst' : null;
+        
+      if (row && roleKey && row[roleKey]) {
+        return next();
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  
+  res.status(403).json({ error: 'Access denied. You do not have permission to view maintenance logs.' });
+};
+
 // @desc    Get all maintenance records
 // @route   GET /api/maintenance
-// @access  Private (Fleet Manager only)
-router.get('/', protect, authorize('Fleet Manager'), async (req, res) => {
+// @access  Private (Fleet Manager or authorized roles)
+router.get('/', protect, canReadMaintenance, async (req, res) => {
   try {
     const logs = await Maintenance.find({})
       .populate('vehicle')
@@ -22,7 +51,7 @@ router.get('/', protect, authorize('Fleet Manager'), async (req, res) => {
 // @desc    Create a maintenance record (Send vehicle to shop)
 // @route   POST /api/maintenance
 // @access  Private (Fleet Manager only)
-router.post('/', protect, authorize('Fleet Manager'), async (req, res) => {
+router.post('/', protect, checkPermission('Schedule Maintenance Logs'), async (req, res) => {
   const { vehicleId, description, cost, startDate } = req.body;
 
   if (!vehicleId || !description || cost === undefined) {
@@ -65,7 +94,7 @@ router.post('/', protect, authorize('Fleet Manager'), async (req, res) => {
 // @desc    Close maintenance record (Release vehicle from shop)
 // @route   POST /api/maintenance/:id/close
 // @access  Private (Fleet Manager only)
-router.post('/:id/close', protect, authorize('Fleet Manager'), async (req, res) => {
+router.post('/:id/close', protect, checkPermission('Close Maintenance Tickets'), async (req, res) => {
   try {
     const log = await Maintenance.findById(req.params.id);
     if (!log) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Trips({ token, userRole, user }) {
+function Trips({ token, userRole, user, hasPermission }) {
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -213,7 +213,7 @@ function Trips({ token, userRole, user }) {
     }
   };
 
-  const isAuthorized = userRole === 'Fleet Manager' || userRole === 'Driver';
+  const isAuthorized = hasPermission ? hasPermission(userRole, 'Create/Draft Dispatches') : (userRole === 'Fleet Manager' || userRole === 'Driver');
 
   return (
     <div className="view-container">
@@ -228,7 +228,7 @@ function Trips({ token, userRole, user }) {
       {!isAuthorized && (
         <div className="info-banner warning-banner">
           ⚠️ Dispatch Control: You are logged in as a <strong>{userRole}</strong>. 
-          Only <strong>Fleet Managers</strong> and <strong>Drivers / Dispatchers</strong> are authorized to create or edit trips.
+          Only <strong>authorized profiles</strong> with 'Create/Draft Dispatches' permission can draft dispatch orders.
         </div>
       )}
 
@@ -421,7 +421,8 @@ function Trips({ token, userRole, user }) {
                     </div>
 
                     {/* Actions panel */}
-                    {isAuthorized && (isDraft || isDispatched) && (
+                    {((isDraft && (hasPermission ? hasPermission(userRole, 'Dispatch Active Trips') : isAuthorized)) ||
+                      (isDispatched && (hasPermission ? hasPermission(userRole, 'Complete/Cancel Trips') : isAuthorized))) && (
                       <div className="trip-card-actions">
                         {isDraft && (
                           <button 

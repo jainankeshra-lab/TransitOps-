@@ -7,6 +7,7 @@ import Trip from '../models/Trip.js';
 import Maintenance from '../models/Maintenance.js';
 import FuelLog from '../models/FuelLog.js';
 import Expense from '../models/Expense.js';
+import RBAC from '../models/RBAC.js';
 
 const seedDatabase = async () => {
   try {
@@ -20,8 +21,28 @@ const seedDatabase = async () => {
     await Maintenance.deleteMany({});
     await FuelLog.deleteMany({});
     await Expense.deleteMany({});
+    await RBAC.deleteMany({});
 
     console.log('Database cleared.');
+
+    // Seed default RBAC matrix
+    await RBAC.create({
+      key: 'current_matrix',
+      permissions: [
+        { feature: 'View Dashboard KPIs', manager: true, driver: true, safety: true, analyst: true },
+        { feature: 'Register/Edit Fleet Vehicles', manager: true, driver: false, safety: false, analyst: false },
+        { feature: 'Register/Edit Drivers Profiles', manager: true, driver: false, safety: true, analyst: false },
+        { feature: 'Create/Draft Dispatches', manager: true, driver: true, safety: false, analyst: false },
+        { feature: 'Dispatch Active Trips', manager: true, driver: true, safety: false, analyst: false },
+        { feature: 'Complete/Cancel Trips', manager: true, driver: true, safety: false, analyst: false },
+        { feature: 'Schedule Maintenance Logs', manager: true, driver: false, safety: false, analyst: false },
+        { feature: 'Close Maintenance Tickets', manager: true, driver: false, safety: false, analyst: false },
+        { feature: 'Log Fuel refills & Expenses', manager: true, driver: false, safety: false, analyst: true },
+        { feature: 'View Financial Yields & ROI Reports', manager: true, driver: true, safety: true, analyst: true },
+        { feature: 'Export Report Spreadsheets (CSV)', manager: true, driver: true, safety: true, analyst: true }
+      ]
+    });
+    console.log('Seeded RBAC defaults.');
 
     // 1. Seed Users (passwords will be hashed via pre-save middleware)
     const users = await User.create([

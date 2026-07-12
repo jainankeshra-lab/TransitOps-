@@ -1,6 +1,6 @@
 import express from 'express';
 import Vehicle from '../models/Vehicle.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -47,7 +47,7 @@ router.get('/:id', protect, async (req, res) => {
 // @desc    Create a vehicle
 // @route   POST /api/vehicles
 // @access  Private (Fleet Manager only)
-router.post('/', protect, authorize('Fleet Manager'), async (req, res) => {
+router.post('/', protect, checkPermission('Register/Edit Fleet Vehicles'), async (req, res) => {
   const { registrationNumber, name, type, maxCapacity, odometer, acquisitionCost, status, region } = req.body;
 
   if (!registrationNumber || !name || !type || !maxCapacity || !acquisitionCost) {
@@ -82,7 +82,7 @@ router.post('/', protect, authorize('Fleet Manager'), async (req, res) => {
 // @desc    Update a vehicle
 // @route   PUT /api/vehicles/:id
 // @access  Private (Fleet Manager only)
-router.put('/:id', protect, authorize('Fleet Manager'), async (req, res) => {
+router.put('/:id', protect, checkPermission('Register/Edit Fleet Vehicles'), async (req, res) => {
   const { registrationNumber, name, type, maxCapacity, odometer, acquisitionCost, status, region } = req.body;
 
   try {
@@ -121,7 +121,7 @@ router.put('/:id', protect, authorize('Fleet Manager'), async (req, res) => {
 // @desc    Delete a vehicle
 // @route   DELETE /api/vehicles/:id
 // @access  Private (Fleet Manager only)
-router.delete('/:id', protect, authorize('Fleet Manager'), async (req, res) => {
+router.delete('/:id', protect, checkPermission('Register/Edit Fleet Vehicles'), async (req, res) => {
   try {
     const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
     if (!vehicle) {

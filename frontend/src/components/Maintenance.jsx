@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Maintenance({ token, userRole }) {
+function Maintenance({ token, userRole, hasPermission }) {
   const [logs, setLogs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,8 @@ function Maintenance({ token, userRole }) {
     }
   };
 
-  const isManager = userRole === 'Fleet Manager';
+  const isManager = hasPermission ? hasPermission(userRole, 'Schedule Maintenance Logs') : (userRole === 'Fleet Manager');
+  const canClose = hasPermission ? hasPermission(userRole, 'Close Maintenance Tickets') : (userRole === 'Fleet Manager');
 
   return (
     <div className="view-container">
@@ -122,7 +123,7 @@ function Maintenance({ token, userRole }) {
       {!isManager && (
         <div className="info-banner warning-banner">
           ⚠️ Workshop Access: You are logged in as a <strong>{userRole}</strong>. 
-          Only <strong>Fleet Managers</strong> are authorized to create or resolve maintenance tickets.
+          Only <strong>authorized profiles</strong> with 'Schedule Maintenance Logs' permission can create maintenance tickets.
         </div>
       )}
 
@@ -219,7 +220,7 @@ function Maintenance({ token, userRole }) {
                     <th>Start Date</th>
                     <th>End Date</th>
                     <th>Status</th>
-                    {isManager && <th style={{ textAlign: 'right' }}>Actions</th>}
+                    {canClose && <th style={{ textAlign: 'right' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -240,7 +241,7 @@ function Maintenance({ token, userRole }) {
                             {isOpen ? 'In Shop' : 'Completed'}
                           </span>
                         </td>
-                        {isManager && (
+                        {canClose && (
                           <td style={{ textAlign: 'right' }}>
                             {isOpen && (
                               <button 

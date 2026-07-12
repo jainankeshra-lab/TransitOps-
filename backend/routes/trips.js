@@ -3,7 +3,7 @@ import Trip from '../models/Trip.js';
 import Vehicle from '../models/Vehicle.js';
 import Driver from '../models/Driver.js';
 import FuelLog from '../models/FuelLog.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -60,7 +60,7 @@ router.get('/:id', protect, async (req, res) => {
 // @desc    Create a new trip
 // @route   POST /api/trips
 // @access  Private (Driver or Fleet Manager)
-router.post('/', protect, authorize('Fleet Manager', 'Driver'), async (req, res) => {
+router.post('/', protect, checkPermission('Create/Draft Dispatches'), async (req, res) => {
   const { source, destination, vehicleId, driverId, cargoWeight, plannedDistance, revenue } = req.body;
 
   if (!source || !destination || !vehicleId || !driverId || !cargoWeight || !plannedDistance) {
@@ -122,7 +122,7 @@ router.post('/', protect, authorize('Fleet Manager', 'Driver'), async (req, res)
 // @desc    Dispatch a trip
 // @route   POST /api/trips/:id/dispatch
 // @access  Private (Driver or Fleet Manager)
-router.post('/:id/dispatch', protect, authorize('Fleet Manager', 'Driver'), async (req, res) => {
+router.post('/:id/dispatch', protect, checkPermission('Dispatch Active Trips'), async (req, res) => {
   try {
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
@@ -172,7 +172,7 @@ router.post('/:id/dispatch', protect, authorize('Fleet Manager', 'Driver'), asyn
 // @desc    Complete a trip
 // @route   POST /api/trips/:id/complete
 // @access  Private (Driver or Fleet Manager)
-router.post('/:id/complete', protect, authorize('Fleet Manager', 'Driver'), async (req, res) => {
+router.post('/:id/complete', protect, checkPermission('Complete/Cancel Trips'), async (req, res) => {
   const { finalOdometer, fuelConsumed } = req.body;
 
   if (finalOdometer === undefined || fuelConsumed === undefined) {
@@ -233,7 +233,7 @@ router.post('/:id/complete', protect, authorize('Fleet Manager', 'Driver'), asyn
 // @desc    Cancel a dispatched trip
 // @route   POST /api/trips/:id/cancel
 // @access  Private (Driver or Fleet Manager)
-router.post('/:id/cancel', protect, authorize('Fleet Manager', 'Driver'), async (req, res) => {
+router.post('/:id/cancel', protect, checkPermission('Complete/Cancel Trips'), async (req, res) => {
   try {
     const trip = await Trip.findById(req.params.id);
     if (!trip) {

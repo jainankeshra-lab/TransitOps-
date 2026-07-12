@@ -3,14 +3,14 @@ import FuelLog from '../models/FuelLog.js';
 import Expense from '../models/Expense.js';
 import Maintenance from '../models/Maintenance.js';
 import Vehicle from '../models/Vehicle.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // @desc    Get all fuel logs
 // @route   GET /api/expenses/fuel
 // @access  Private (Financial Analyst / Fleet Manager only)
-router.get('/fuel', protect, authorize('Financial Analyst', 'Fleet Manager'), async (req, res) => {
+router.get('/fuel', protect, checkPermission('Log Fuel refills & Expenses'), async (req, res) => {
   try {
     const logs = await FuelLog.find({}).populate('vehicle').sort({ date: -1 });
     res.json(logs);
@@ -22,7 +22,7 @@ router.get('/fuel', protect, authorize('Financial Analyst', 'Fleet Manager'), as
 // @desc    Log fuel purchase
 // @route   POST /api/expenses/fuel
 // @access  Private (Financial Analyst / Fleet Manager only)
-router.post('/fuel', protect, authorize('Financial Analyst', 'Fleet Manager'), async (req, res) => {
+router.post('/fuel', protect, checkPermission('Log Fuel refills & Expenses'), async (req, res) => {
   const { vehicleId, liters, cost, date } = req.body;
 
   if (!vehicleId || !liters || !cost) {
@@ -51,7 +51,7 @@ router.post('/fuel', protect, authorize('Financial Analyst', 'Fleet Manager'), a
 // @desc    Get all other expenses
 // @route   GET /api/expenses/misc
 // @access  Private (Financial Analyst / Fleet Manager only)
-router.get('/misc', protect, authorize('Financial Analyst', 'Fleet Manager'), async (req, res) => {
+router.get('/misc', protect, checkPermission('Log Fuel refills & Expenses'), async (req, res) => {
   try {
     const logs = await Expense.find({}).populate('vehicle').sort({ date: -1 });
     res.json(logs);
@@ -63,7 +63,7 @@ router.get('/misc', protect, authorize('Financial Analyst', 'Fleet Manager'), as
 // @desc    Log miscellaneous expense (tolls, insurance, etc.)
 // @route   POST /api/expenses/misc
 // @access  Private (Financial Analyst / Fleet Manager only)
-router.post('/misc', protect, authorize('Financial Analyst', 'Fleet Manager'), async (req, res) => {
+router.post('/misc', protect, checkPermission('Log Fuel refills & Expenses'), async (req, res) => {
   const { vehicleId, type, amount, description, date } = req.body;
 
   if (!vehicleId || !type || !amount) {
@@ -93,7 +93,7 @@ router.post('/misc', protect, authorize('Financial Analyst', 'Fleet Manager'), a
 // @desc    Get total operational cost (Fuel + Maintenance + Misc) per vehicle
 // @route   GET /api/expenses/cost/:vehicleId
 // @access  Private (Financial Analyst / Fleet Manager only)
-router.get('/cost/:vehicleId', protect, authorize('Financial Analyst', 'Fleet Manager'), async (req, res) => {
+router.get('/cost/:vehicleId', protect, checkPermission('Log Fuel refills & Expenses'), async (req, res) => {
   const { vehicleId } = req.params;
 
   try {

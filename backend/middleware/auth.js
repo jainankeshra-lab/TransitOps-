@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import RBAC from '../models/RBAC.js';
 
 // Protect routes - requires authentication
 export const protect = async (req, res, next) => {
@@ -45,5 +46,46 @@ export const authorize = (...roles) => {
     }
 
     next();
+  };
+};
+
+// Check permissions dynamically against Database RBAC configuration
+export const checkPermission = (featureName) => {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+      const rbac = await RBAC.findOne({ key: 'current_matrix' });
+      if (!rbac) {
+        // Fallback to basic authorize mapping if database row is empty
+        return next();
+      }
+
+      const permRow = rbac.permissions.find(p => p.feature === featureName);
+      if (!permRow) {
+        return res.status(403).json({ error: `Access denied. Feature '${featureName}' is not defined.` });
+      }
+
+      const role = req.user.role;
+      let hasAccess = false;
+
+      if (role === 'Fleet Manager') hasAccess = permRow.manager;
+      else if (role === 'Driver') hasAccess = permRow.driver;
+      else if (role === 'Safety Officer') hasAccess = permRow.safety;
+      else if (role === 'Financial Analyst') hasAccess = permRow.analyst;
+
+      if (!hasAccess) {
+        return res.status(403).json({ 
+          error: `Access denied. Role '${role}' does not have '${featureName}' permission in system settings.` 
+        });
+      }
+
+      next();
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Authorization check failed: ' + err.message });
+    }
   };
 };

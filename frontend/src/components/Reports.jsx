@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Reports({ token }) {
+function Reports({ token, userRole, hasPermission }) {
   const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,19 +31,23 @@ function Reports({ token }) {
 
   const handleExportCSV = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await fetch(`${API_URL}/reports/export-csv`, { headers });
-      
-      if (!response.ok) throw new Error('Failed to generate CSV export.');
+      setError('');
+      const response = await fetch(`${API_URL}/reports/export-csv`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to export CSV report.');
+      }
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `transitops-fleet-report-${new Date().toISOString().substring(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fleet-roi-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
       alert(err.message);
     }
@@ -76,6 +80,8 @@ function Reports({ token }) {
     window.print();
   };
 
+  const canExport = hasPermission ? hasPermission(userRole, 'Export Report Spreadsheets (CSV)') : true;
+
   return (
     <div className="view-container">
       {/* View Header */}
@@ -88,7 +94,12 @@ function Reports({ token }) {
           <button className="secondary-btn" onClick={handlePrintPDF}>
             🖨️ Print Report (PDF)
           </button>
-          <button className="accent-action-btn" onClick={handleExportCSV}>
+          <button 
+            className="accent-action-btn" 
+            onClick={handleExportCSV}
+            disabled={!canExport}
+            title={!canExport ? "Spreadsheet export capability is locked by Fleet Manager." : ""}
+          >
             📥 Export Report (CSV)
           </button>
         </div>

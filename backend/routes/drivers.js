@@ -1,6 +1,6 @@
 import express from 'express';
 import Driver from '../models/Driver.js';
-import { protect, authorize } from '../middleware/auth.js';
+import { protect, authorize, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -53,7 +53,7 @@ router.get('/:id', protect, async (req, res) => {
 // @desc    Create a driver
 // @route   POST /api/drivers
 // @access  Private (Fleet Manager / Safety Officer only)
-router.post('/', protect, authorize('Fleet Manager', 'Safety Officer'), async (req, res) => {
+router.post('/', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
   const { name, licenseNumber, licenseCategory, licenseExpiry, contact, safetyScore, status } = req.body;
 
   if (!name || !licenseNumber || !licenseCategory || !licenseExpiry || !contact) {
@@ -80,7 +80,7 @@ router.post('/', protect, authorize('Fleet Manager', 'Safety Officer'), async (r
 // @desc    Update a driver
 // @route   PUT /api/drivers/:id
 // @access  Private (Fleet Manager / Safety Officer only)
-router.put('/:id', protect, authorize('Fleet Manager', 'Safety Officer'), async (req, res) => {
+router.put('/:id', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
   const { name, licenseNumber, licenseCategory, licenseExpiry, contact, safetyScore, status } = req.body;
 
   try {
@@ -107,7 +107,7 @@ router.put('/:id', protect, authorize('Fleet Manager', 'Safety Officer'), async 
 // @desc    Delete a driver
 // @route   DELETE /api/drivers/:id
 // @access  Private (Fleet Manager / Safety Officer only)
-router.delete('/:id', protect, authorize('Fleet Manager', 'Safety Officer'), async (req, res) => {
+router.delete('/:id', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
   try {
     const driver = await Driver.findByIdAndDelete(req.params.id);
     if (!driver) {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Vehicles({ token, userRole }) {
+function Vehicles({ token, userRole, hasPermission }) {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -146,7 +146,7 @@ function Vehicles({ token, userRole }) {
     }
   };
 
-  const isManager = userRole === 'Fleet Manager';
+  const isManager = hasPermission ? hasPermission(userRole, 'Register/Edit Fleet Vehicles') : (userRole === 'Fleet Manager');
 
   return (
     <div className="view-container">
@@ -160,7 +160,7 @@ function Vehicles({ token, userRole }) {
           className="accent-action-btn"
           disabled={!isManager}
           onClick={openAddModal}
-          title={!isManager ? "Only Fleet Managers can register vehicles" : ""}
+          title={!isManager ? "Only authorized roles can register vehicles" : ""}
         >
           + Register Vehicle
         </button>
@@ -169,7 +169,7 @@ function Vehicles({ token, userRole }) {
       {!isManager && (
         <div className="info-banner warning-banner">
           ⚠️ Operational Note: You are logged in as a <strong>{userRole}</strong>. 
-          Only <strong>Fleet Managers</strong> are authorized to create, edit, or delete vehicles.
+          Only <strong>authorized profiles</strong> with 'Register/Edit Fleet Vehicles' permission can create, edit, or delete vehicles.
         </div>
       )}
 

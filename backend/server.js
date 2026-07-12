@@ -20,6 +20,7 @@ import tripsRouter from './routes/trips.js';
 import maintenanceRouter from './routes/maintenance.js';
 import expensesRouter from './routes/expenses.js';
 import reportsRouter from './routes/reports.js';
+import rbacRouter from './routes/rbac.js';
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use('/api/trips', tripsRouter);
 app.use('/api/maintenance', maintenanceRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/rbac', rbacRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

@@ -5,14 +5,14 @@ import Trip from '../models/Trip.js';
 import Maintenance from '../models/Maintenance.js';
 import FuelLog from '../models/FuelLog.js';
 import Expense from '../models/Expense.js';
-import { protect } from '../middleware/auth.js';
+import { protect, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // @desc    Get Dashboard metrics & KPIs (with filters)
 // @route   GET /api/reports/dashboard
 // @access  Private
-router.get('/dashboard', protect, async (req, res) => {
+router.get('/dashboard', protect, checkPermission('View Dashboard KPIs'), async (req, res) => {
   const { type, status, region } = req.query;
 
   try {
@@ -97,7 +97,7 @@ router.get('/dashboard', protect, async (req, res) => {
 // @desc    Get Detailed Fleet Analytics and ROI
 // @route   GET /api/reports/analytics
 // @access  Private
-router.get('/analytics', protect, async (req, res) => {
+router.get('/analytics', protect, checkPermission('View Financial Yields & ROI Reports'), async (req, res) => {
   try {
     let vehiclesFilter = {};
     if (req.user.role === 'Driver') {
@@ -173,7 +173,7 @@ router.get('/analytics', protect, async (req, res) => {
 // @desc    Export Fleet Analytics as CSV
 // @route   GET /api/reports/export-csv
 // @access  Private
-router.get('/export-csv', protect, async (req, res) => {
+router.get('/export-csv', protect, checkPermission('Export Report Spreadsheets (CSV)'), async (req, res) => {
   try {
     let vehiclesFilter = {};
     if (req.user.role === 'Driver') {

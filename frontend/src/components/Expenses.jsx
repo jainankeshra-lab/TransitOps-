@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Expenses({ token, userRole }) {
+function Expenses({ token, userRole, hasPermission }) {
   const [vehicles, setVehicles] = useState([]);
   const [fuelLogs, setFuelLogs] = useState([]);
   const [miscExpenses, setMiscExpenses] = useState([]);
@@ -160,7 +160,7 @@ function Expenses({ token, userRole }) {
   const totalFuelSum = fuelLogs.reduce((acc, l) => acc + l.cost, 0);
   const totalMiscSum = miscExpenses.reduce((acc, l) => acc + l.amount, 0);
 
-  const isAuthorized = userRole === 'Fleet Manager' || userRole === 'Financial Analyst';
+  const isAuthorized = hasPermission ? hasPermission(userRole, 'Log Fuel refills & Expenses') : (userRole === 'Fleet Manager' || userRole === 'Financial Analyst');
 
   return (
     <div className="view-container">
@@ -175,7 +175,7 @@ function Expenses({ token, userRole }) {
       {!isAuthorized && (
         <div className="info-banner warning-banner">
           ⚠️ Financial Ledger Note: You are logged in as a <strong>{userRole}</strong>. 
-          Only <strong>Fleet Managers</strong> and <strong>Financial Analysts</strong> are authorized to log expense entries.
+          Only <strong>authorized profiles</strong> with 'Log Fuel refills & Expenses' permission can log expense entries.
         </div>
       )}
 
