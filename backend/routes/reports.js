@@ -16,38 +16,64 @@ router.get('/dashboard', protect, async (req, res) => {
   const { type, status, region } = req.query;
 
   try {
-    // Construct vehicle filters
-    const vehicleFilter = {};
-    if (type) vehicleFilter.type = type;
-    if (status) vehicleFilter.status = status;
-    if (region) vehicleFilter.region = region;
+    let totalVehicles, activeVehicles, availableVehicles, inMaintenanceVehicles, retiredVehicles;
+    let activeTrips, pendingTrips, completedTrips, driversOnDuty, fleetUtilization;
 
-    // Fetch vehicles
-    const vehicles = await Vehicle.find(vehicleFilter);
-    const totalVehicles = vehicles.length;
+    if (req.user.role === 'Driver') {
+      const driverProfile = await Driver.findOne({ name: req.user.name });
+      if (driverProfile) {
+        const driverTrips = await Trip.find({ driver: driverProfile._id });
+        activeTrips = driverTrips.filter(t => t.status === 'Dispatched').length;
+        pendingTrips = driverTrips.filter(t => t.status === 'Draft').length;
+        completedTrips = driverTrips.filter(t => t.status === 'Completed').length;
+        
+        driversOnDuty = (driverProfile.status === 'Available' || driverProfile.status === 'On Trip') ? 1 : 0;
+        
+        const isDriving = driverProfile.status === 'On Trip';
+        activeVehicles = isDriving ? 1 : 0;
+        availableVehicles = driverProfile.status === 'Available' ? 1 : 0;
+        inMaintenanceVehicles = driverProfile.status === 'In Shop' ? 1 : 0;
+        retiredVehicles = 0;
+        totalVehicles = 1;
+        fleetUtilization = isDriving ? 100 : 0;
+      } else {
+        totalVehicles = 0; activeVehicles = 0; availableVehicles = 0; inMaintenanceVehicles = 0; retiredVehicles = 0;
+        activeTrips = 0; pendingTrips = 0; completedTrips = 0; driversOnDuty = 0; fleetUtilization = 0;
+      }
+    } else {
+      // Construct vehicle filters
+      const vehicleFilter = {};
+      if (type) vehicleFilter.type = type;
+      if (status) vehicleFilter.status = status;
+      if (region) vehicleFilter.region = region;
 
-    // KPI Counts
-    const activeVehicles = vehicles.filter(v => v.status === 'On Trip').length;
-    const availableVehicles = vehicles.filter(v => v.status === 'Available').length;
-    const inMaintenanceVehicles = vehicles.filter(v => v.status === 'In Shop').length;
-    const retiredVehicles = vehicles.filter(v => v.status === 'Retired').length;
+      // Fetch vehicles
+      const vehicles = await Vehicle.find(vehicleFilter);
+      totalVehicles = vehicles.length;
 
-    const fleetUtilization = totalVehicles > 0 
-      ? Math.round((activeVehicles / totalVehicles) * 100) 
-      : 0;
+      // KPI Counts
+      activeVehicles = vehicles.filter(v => v.status === 'On Trip').length;
+      availableVehicles = vehicles.filter(v => v.status === 'Available').length;
+      inMaintenanceVehicles = vehicles.filter(v => v.status === 'In Shop').length;
+      retiredVehicles = vehicles.filter(v => v.status === 'Retired').length;
 
-    // Driver metrics (we can filter by region if driver profiles had regions, otherwise global)
-    const drivers = await Driver.find({});
-    const driversOnDuty = drivers.filter(d => d.status === 'Available' || d.status === 'On Trip').length;
+      fleetUtilization = totalVehicles > 0 
+        ? Math.round((activeVehicles / totalVehicles) * 100) 
+        : 0;
 
-    // Trips counts
-    // Map vehicle ids for filter matching
-    const vehicleIds = vehicles.map(v => v._id);
-    const trips = await Trip.find({ vehicle: { $in: vehicleIds } });
-    
-    const activeTrips = trips.filter(t => t.status === 'Dispatched').length;
-    const pendingTrips = trips.filter(t => t.status === 'Draft').length;
-    const completedTrips = trips.filter(t => t.status === 'Completed').length;
+      // Driver metrics (we can filter by region if driver profiles had regions, otherwise global)
+      const drivers = await Driver.find({});
+      driversOnDuty = drivers.filter(d => d.status === 'Available' || d.status === 'On Trip').length;
+
+      // Trips counts
+      // Map vehicle ids for filter matching
+      const vehicleIds = vehicles.map(v => v._id);
+      const trips = await Trip.find({ vehicle: { $in: vehicleIds } });
+      
+      activeTrips = trips.filter(t => t.status === 'Dispatched').length;
+      pendingTrips = trips.filter(t => t.status === 'Draft').length;
+      completedTrips = trips.filter(t => t.status === 'Completed').length;
+    }
 
     res.json({
       kpis: {
@@ -73,7 +99,19 @@ router.get('/dashboard', protect, async (req, res) => {
 // @access  Private
 router.get('/analytics', protect, async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({});
+    let vehiclesFilter = {};
+    if (req.user.role === 'Driver') {
+      const driverProfile = await Driver.findOne({ name: req.user.name });
+      if (driverProfile) {
+        const driverTrips = await Trip.find({ driver: driverProfile._id });
+        const vehicleIds = driverTrips.map(t => t.vehicle);
+        vehiclesFilter = { _id: { $in: vehicleIds } };
+      } else {
+        return res.json([]);
+      }
+    }
+
+    const vehicles = await Vehicle.find(vehiclesFilter);
     const reportData = [];
 
     for (const vehicle of vehicles) {
@@ -137,7 +175,18 @@ router.get('/analytics', protect, async (req, res) => {
 // @access  Private
 router.get('/export-csv', protect, async (req, res) => {
   try {
-    const vehicles = await Vehicle.find({});
+    let vehiclesFilter = {};
+    if (req.user.role === 'Driver') {
+      const driverProfile = await Driver.findOne({ name: req.user.name });
+      if (driverProfile) {
+        const driverTrips = await Trip.find({ driver: driverProfile._id });
+        const vehicleIds = driverTrips.map(t => t.vehicle);
+        vehiclesFilter = { _id: { $in: vehicleIds } };
+      } else {
+        return res.status(200).send('No data available\n');
+      }
+    }
+    const vehicles = await Vehicle.find(vehiclesFilter);
     
     // Headers
     let csv = 'Reg Number,Vehicle Name,Type,Acquisition Cost ($),Total Distance (km),Total Revenue ($),Fuel Cost ($),Fuel Liters (L),Efficiency (km/L),Maintenance ($),Other Expenses ($),Total Costs ($),ROI (%)\n';

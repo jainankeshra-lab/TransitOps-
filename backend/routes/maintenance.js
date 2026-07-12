@@ -7,8 +7,8 @@ const router = express.Router();
 
 // @desc    Get all maintenance records
 // @route   GET /api/maintenance
-// @access  Private
-router.get('/', protect, async (req, res) => {
+// @access  Private (Fleet Manager only)
+router.get('/', protect, authorize('Fleet Manager'), async (req, res) => {
   try {
     const logs = await Maintenance.find({})
       .populate('vehicle')

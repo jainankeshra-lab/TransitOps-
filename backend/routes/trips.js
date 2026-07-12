@@ -12,7 +12,17 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const trips = await Trip.find({})
+    const query = {};
+    if (req.user.role === 'Driver') {
+      const driverProfile = await Driver.findOne({ name: req.user.name });
+      if (driverProfile) {
+        query.driver = driverProfile._id;
+      } else {
+        return res.json([]);
+      }
+    }
+
+    const trips = await Trip.find(query)
       .populate('vehicle')
       .populate('driver')
       .sort({ createdAt: -1 });
@@ -33,6 +43,14 @@ router.get('/:id', protect, async (req, res) => {
     if (!trip) {
       return res.status(404).json({ error: 'Trip not found' });
     }
+
+    if (req.user.role === 'Driver') {
+      const driverProfile = await Driver.findOne({ name: req.user.name });
+      if (!driverProfile || String(trip.driver._id) !== String(driverProfile._id)) {
+        return res.status(403).json({ error: 'Not authorized to view this trip.' });
+      }
+    }
+
     res.json(trip);
   } catch (error) {
     res.status(500).json({ error: error.message });

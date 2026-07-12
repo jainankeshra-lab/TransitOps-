@@ -16,6 +16,11 @@ router.get('/', protect, async (req, res) => {
     query.name = { $regex: search, $options: 'i' };
   }
 
+  // Security: A driver user should only be able to view their own driver profile
+  if (req.user.role === 'Driver') {
+    query.name = req.user.name;
+  }
+
   try {
     const drivers = await Driver.find(query);
     res.json(drivers);
@@ -33,6 +38,12 @@ router.get('/:id', protect, async (req, res) => {
     if (!driver) {
       return res.status(404).json({ error: 'Driver not found' });
     }
+
+    // Security: A driver user should only be able to view their own driver profile
+    if (req.user.role === 'Driver' && driver.name !== req.user.name) {
+      return res.status(403).json({ error: 'Not authorized to view other driver profiles.' });
+    }
+
     res.json(driver);
   } catch (error) {
     res.status(500).json({ error: error.message });

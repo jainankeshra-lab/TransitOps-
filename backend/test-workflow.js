@@ -32,7 +32,23 @@ const runTests = async () => {
       'Authorization': `Bearer ${token}`
     };
 
-    // 2. Register vehicle 'Van-05'
+    // Cleanup leftover test data
+    console.log('\n🧹 Cleaning up any leftover test data from previous runs...');
+    const vehiclesResCheck = await fetch(`${BASE_URL}/vehicles`, { headers });
+    const vehiclesDataCheck = await vehiclesResCheck.json();
+    const existingVehicle = vehiclesDataCheck.find(v => v.registrationNumber === 'VAN-05');
+    if (existingVehicle) {
+      await fetch(`${BASE_URL}/vehicles/${existingVehicle._id}`, { method: 'DELETE', headers });
+      console.log('🗑️ Leftover vehicle VAN-05 deleted.');
+    }
+
+    const driversResCheck = await fetch(`${BASE_URL}/drivers`, { headers });
+    const driversDataCheck = await driversResCheck.json();
+    const existingDriver = driversDataCheck.find(d => d.name === 'Alex');
+    if (existingDriver) {
+      await fetch(`${BASE_URL}/drivers/${existingDriver._id}`, { method: 'DELETE', headers });
+      console.log('🗑️ Leftover driver Alex deleted.');
+    }
     console.log('\n🚚 Step 2: Registering vehicle "Van-05" (maxCapacity = 500kg)...');
     const vehicleRes = await fetch(`${BASE_URL}/vehicles`, {
       method: 'POST',

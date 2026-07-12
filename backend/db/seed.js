@@ -26,7 +26,7 @@ const seedDatabase = async () => {
     // 1. Seed Users (passwords will be hashed via pre-save middleware)
     const users = await User.create([
       { name: 'Fleet Manager', email: 'manager@transitops.com', password: 'password123', role: 'Fleet Manager' },
-      { name: 'Dispatcher Alex', email: 'driver@transitops.com', password: 'password123', role: 'Driver' },
+      { name: 'John Doe', email: 'driver@transitops.com', password: 'password123', role: 'Driver' },
       { name: 'Safety Officer', email: 'safety@transitops.com', password: 'password123', role: 'Safety Officer' },
       { name: 'Financial Analyst', email: 'analyst@transitops.com', password: 'password123', role: 'Financial Analyst' }
     ]);
