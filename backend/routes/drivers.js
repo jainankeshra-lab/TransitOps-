@@ -54,7 +54,7 @@ router.get('/:id', protect, async (req, res) => {
 // @route   POST /api/drivers
 // @access  Private (Fleet Manager / Safety Officer only)
 router.post('/', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
-  const { name, licenseNumber, licenseCategory, licenseExpiry, contact, safetyScore, status } = req.body;
+  const { name, licenseNumber, licenseCategory, licenseExpiry, contact, email, safetyScore, status } = req.body;
 
   if (!name || !licenseNumber || !licenseCategory || !licenseExpiry || !contact) {
     return res.status(400).json({ error: 'Please enter all required fields' });
@@ -67,6 +67,7 @@ router.post('/', protect, checkPermission('Register/Edit Drivers Profiles'), asy
       licenseCategory,
       licenseExpiry: new Date(licenseExpiry),
       contact,
+      email: email || '',
       safetyScore: safetyScore !== undefined ? safetyScore : 100,
       status: status || 'Available'
     });
@@ -81,7 +82,7 @@ router.post('/', protect, checkPermission('Register/Edit Drivers Profiles'), asy
 // @route   PUT /api/drivers/:id
 // @access  Private (Fleet Manager / Safety Officer only)
 router.put('/:id', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
-  const { name, licenseNumber, licenseCategory, licenseExpiry, contact, safetyScore, status } = req.body;
+  const { name, licenseNumber, licenseCategory, licenseExpiry, contact, email, safetyScore, status } = req.body;
 
   try {
     const driver = await Driver.findById(req.params.id);
@@ -94,11 +95,25 @@ router.put('/:id', protect, checkPermission('Register/Edit Drivers Profiles'), a
     if (licenseCategory) driver.licenseCategory = licenseCategory;
     if (licenseExpiry) driver.licenseExpiry = new Date(licenseExpiry);
     if (contact) driver.contact = contact;
+    if (email !== undefined) driver.email = email;
     if (safetyScore !== undefined) driver.safetyScore = safetyScore;
     if (status) driver.status = status;
 
     const updatedDriver = await driver.save();
     res.json(updatedDriver);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @desc    Trigger manual license expiry email check
+// @route   POST /api/drivers/send-expiry-alerts
+// @access  Private (Fleet Manager / Safety Officer only)
+router.post('/send-expiry-alerts', protect, checkPermission('Register/Edit Drivers Profiles'), async (req, res) => {
+  try {
+    const { sendLicenseExpiryAlerts } = await import('../utils/emailService.js');
+    const logs = await sendLicenseExpiryAlerts();
+    res.json({ message: `Scanned drivers for upcoming expirations. Emails dispatched.`, logs });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

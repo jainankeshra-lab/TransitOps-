@@ -118,15 +118,128 @@ router.put('/:id', protect, checkPermission('Register/Edit Fleet Vehicles'), asy
   }
 });
 
+// Setup Multer storage for document uploads
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadDir = path.join(__dirname, '../uploads');
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// @desc    Upload a document for a vehicle
+// @route   POST /api/vehicles/:id/documents
+// @access  Private (Fleet Manager only)
+router.post('/:id/documents', protect, checkPermission('Register/Edit Fleet Vehicles'), upload.single('document'), async (req, res) => {
+  try {
+    const { name, category } = req.body;
+    if (!name || !category || !req.file) {
+      return res.status(400).json({ error: 'Please provide document name, category, and a file' });
+    }
+
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) {
+      return res.status(404).json({ error: 'Vehicle not found' });
+    }
+
+    // Save metadata
+    const relativePath = `/uploads/${req.file.filename}`;
+    const newDoc = {
+      name,
+      category,
+      filePath: relativePath,
+      uploadDate: new Date()
+    };
+
+    vehicle.documents.push(newDoc);
+    await vehicle.save();
+
+    res.status(201).json(vehicle);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @desc    Delete a document from a vehicle
+// @route   DELETE /api/vehicles/:id/documents/:docId
+// @access  Private (Fleet Manager only)
+router.delete('/:id/documents/:docId', protect, checkPermission('Register/Edit Fleet Vehicles'), async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) {
+      return res.status(404).json({ error: 'Vehicle not found' });
+    }
+
+    const docIndex = vehicle.documents.findIndex(d => d._id.toString() === req.params.docId);
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found on this vehicle' });
+    }
+
+    const document = vehicle.documents[docIndex];
+
+    // Attempt to delete physical file
+    const physicalPath = path.join(__dirname, '..', document.filePath);
+    if (fs.existsSync(physicalPath)) {
+      try {
+        fs.unlinkSync(physicalPath);
+      } catch (err) {
+        console.warn('⚠️ Could not delete physical file:', physicalPath, err.message);
+      }
+    }
+
+    vehicle.documents.splice(docIndex, 1);
+    await vehicle.save();
+
+    res.json(vehicle);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // @desc    Delete a vehicle
 // @route   DELETE /api/vehicles/:id
 // @access  Private (Fleet Manager only)
 router.delete('/:id', protect, checkPermission('Register/Edit Fleet Vehicles'), async (req, res) => {
   try {
-    const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
+    // Also delete vehicle's physical documents when deleting the vehicle itself
+    const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) {
       return res.status(404).json({ error: 'Vehicle not found' });
     }
+
+    for (const doc of vehicle.documents) {
+      const physicalPath = path.join(__dirname, '..', doc.filePath);
+      if (fs.existsSync(physicalPath)) {
+        try {
+          fs.unlinkSync(physicalPath);
+        } catch (err) {
+          console.warn('⚠️ Could not delete physical file on vehicle deletion:', physicalPath, err.message);
+        }
+      }
+    }
+
+    await Vehicle.findByIdAndDelete(req.params.id);
     res.json({ message: 'Vehicle deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

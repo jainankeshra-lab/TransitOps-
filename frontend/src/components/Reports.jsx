@@ -4,6 +4,7 @@ const API_URL = 'http://localhost:5000/api';
 
 function Reports({ token, userRole, hasPermission }) {
   const [analytics, setAnalytics] = useState([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -13,10 +14,19 @@ function Reports({ token, userRole, hasPermission }) {
       setError('');
       const headers = { Authorization: `Bearer ${token}` };
 
-      const response = await fetch(`${API_URL}/reports/analytics`, { headers });
-      if (!response.ok) throw new Error('Failed to load fleet analytics.');
-      const data = await response.json();
-      setAnalytics(data);
+      const [analyticsRes, monthlyRes] = await Promise.all([
+        fetch(`${API_URL}/reports/analytics`, { headers }),
+        fetch(`${API_URL}/reports/monthly-revenue`, { headers })
+      ]);
+
+      if (!analyticsRes.ok) throw new Error('Failed to load fleet analytics.');
+      const analyticsData = await analyticsRes.json();
+      setAnalytics(analyticsData);
+
+      if (monthlyRes.ok) {
+        const monthlyData = await monthlyRes.json();
+        setMonthlyRevenue(monthlyData);
+      }
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -291,6 +301,104 @@ function Reports({ token, userRole, hasPermission }) {
               </svg>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Monthly Revenue Bar Chart */}
+      <div className="section-panel" style={{ marginTop: '2rem' }}>
+        <h3>Monthly Revenue Trend (Last 12 Months)</h3>
+        <p className="panel-subtitle">Aggregated revenue from all completed trips grouped by calendar month</p>
+        <div className="svg-chart-container" style={{ marginTop: '1.5rem' }}>
+          {monthlyRevenue.length === 0 ? (
+            <div className="empty-state">No monthly revenue data available yet.</div>
+          ) : (() => {
+            const maxRev = Math.max(...monthlyRevenue.map(m => m.totalRevenue), 1);
+            const chartH = 200;
+            const chartTop = 20;
+            const chartBottom = 170;
+            const axisX = 50;
+            const axisWidth = 520;
+            const n = monthlyRevenue.length;
+            const spacing = axisWidth / n;
+            const barW = Math.min(28, spacing * 0.55);
+
+            return (
+              <svg viewBox="0 0 600 230" className="analytics-svg" style={{ maxWidth: '100%' }}>
+                {/* Grid lines */}
+                {[0, 0.25, 0.5, 0.75, 1].map((fraction, i) => {
+                  const y = chartBottom - fraction * (chartBottom - chartTop);
+                  return (
+                    <g key={i}>
+                      <line x1={axisX} y1={y} x2={axisX + axisWidth} y2={y} stroke="var(--border-color)" strokeWidth="0.5" strokeDasharray="3" />
+                      <text x={axisX - 4} y={y + 3} fill="var(--text-secondary)" fontSize="8" textAnchor="end">
+                        ${Math.round(maxRev * fraction).toLocaleString()}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Axis */}
+                <line x1={axisX} y1={chartTop} x2={axisX} y2={chartBottom} stroke="var(--border-color)" strokeWidth="1" />
+                <line x1={axisX} y1={chartBottom} x2={axisX + axisWidth} y2={chartBottom} stroke="var(--border-color)" strokeWidth="1" />
+
+                {/* Bars */}
+                {monthlyRevenue.map((m, idx) => {
+                  const x = axisX + idx * spacing + spacing / 2 - barW / 2;
+                  const barH = maxRev > 0 ? Math.max(2, (m.totalRevenue / maxRev) * (chartBottom - chartTop)) : 2;
+                  const barY = chartBottom - barH;
+                  const hasRevenue = m.totalRevenue > 0;
+
+                  return (
+                    <g key={idx}>
+                      <rect
+                        x={x}
+                        y={barY}
+                        width={barW}
+                        height={barH}
+                        rx="2"
+                        fill={hasRevenue ? 'var(--border-focus)' : 'var(--border-color)'}
+                        opacity={hasRevenue ? '1' : '0.4'}
+                      />
+                      {hasRevenue && (
+                        <text
+                          x={x + barW / 2}
+                          y={barY - 4}
+                          fill="var(--accent-color)"
+                          fontSize="7.5"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          ${(m.totalRevenue / 1000).toFixed(1)}k
+                        </text>
+                      )}
+                      {/* Trip count badge */}
+                      {m.totalTrips > 0 && (
+                        <text
+                          x={x + barW / 2}
+                          y={chartBottom + 10}
+                          fill="var(--text-secondary)"
+                          fontSize="7"
+                          textAnchor="middle"
+                        >
+                          {m.totalTrips}t
+                        </text>
+                      )}
+                      {/* Month label */}
+                      <text
+                        x={x + barW / 2}
+                        y={chartBottom + 22}
+                        fill="var(--text-secondary)"
+                        fontSize="8"
+                        textAnchor="middle"
+                      >
+                        {m.label}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            );
+          })()}
         </div>
       </div>
 

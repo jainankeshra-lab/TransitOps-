@@ -39,7 +39,13 @@ const vehicleSchema = new mongoose.Schema({
   region: {
     type: String,
     default: 'National'
-  }
+  },
+  documents: [{
+    name: { type: String, required: true },
+    category: { type: String, required: true },
+    filePath: { type: String, required: true },
+    uploadDate: { type: Date, default: Date.now }
+  }]
 }, {
   timestamps: true
 });

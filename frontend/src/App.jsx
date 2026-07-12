@@ -22,6 +22,21 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Theme state — persisted in localStorage
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem('transitops_theme') || 'dark'
+  );
+
+  // Apply theme to document element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('transitops_theme', theme);
+  }, [theme]);
+
+  const handleToggleTheme = (mode) => {
+    setTheme(mode);
+  };
+
   const fetchPermissions = async (token) => {
     try {
       const response = await fetch('http://localhost:5000/api/rbac', {
@@ -206,11 +221,20 @@ function App() {
           </div>
 
           <div className="navbar-right">
-            {/* Quick role switcher header badge */}
+            {/* Quick role indicator */}
             <div className="header-role-indicator">
               <span>Test Role:</span>
               <strong>{user.role}</strong>
             </div>
+
+            {/* Light/Dark mode quick toggle */}
+            <button
+              className="theme-quick-toggle"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
 
             <div className="profile-indicator">
               <span className="profile-icon">👤</span>
@@ -235,7 +259,15 @@ function App() {
           {currentView === 'Maintenance' && <Maintenance token={user.token} userRole={user.role} user={user} hasPermission={hasPermission} />}
           {currentView === 'Expenses' && <Expenses token={user.token} userRole={user.role} user={user} hasPermission={hasPermission} />}
           {currentView === 'Reports' && <Reports token={user.token} userRole={user.role} user={user} hasPermission={hasPermission} />}
-          {currentView === 'Settings' && user.role === 'Fleet Manager' && <RBACSettings token={user.token} userRole={user.role} onSwitchRole={handleSwitchRole} />}
+          {currentView === 'Settings' && user.role === 'Fleet Manager' && (
+            <RBACSettings
+              token={user.token}
+              userRole={user.role}
+              onSwitchRole={handleSwitchRole}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+            />
+          )}
         </main>
       </div>
     </div>

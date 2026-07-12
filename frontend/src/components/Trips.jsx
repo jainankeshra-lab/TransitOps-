@@ -16,6 +16,7 @@ function Trips({ token, userRole, user, hasPermission }) {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [cargoWeight, setCargoWeight] = useState('');
   const [plannedDistance, setPlannedDistance] = useState('');
+  const [maxDistance, setMaxDistance] = useState('5000');
   const [revenue, setRevenue] = useState('');
 
   // Complete Trip Dialog Control
@@ -78,6 +79,7 @@ function Trips({ token, userRole, user, hasPermission }) {
   const selectedVehicleObj = vehicles.find(v => v._id === selectedVehicleId);
   const isOverloaded = selectedVehicleObj && cargoWeight && Number(cargoWeight) > selectedVehicleObj.maxCapacity;
   const overloadDifference = selectedVehicleObj && cargoWeight ? Number(cargoWeight) - selectedVehicleObj.maxCapacity : 0;
+  const isDistanceExceeded = maxDistance && plannedDistance && Number(plannedDistance) > Number(maxDistance);
 
   const handleCreateTrip = async (e) => {
     e.preventDefault();
@@ -88,6 +90,11 @@ function Trips({ token, userRole, user, hasPermission }) {
 
     if (isOverloaded) {
       alert('Cannot create dispatch: cargo exceeds vehicle load capacity.');
+      return;
+    }
+
+    if (isDistanceExceeded) {
+      alert(`Cannot create dispatch: planned distance (${plannedDistance} km) exceeds the maximum route limit of ${maxDistance} km.`);
       return;
     }
 
@@ -321,10 +328,24 @@ function Trips({ token, userRole, user, hasPermission }) {
                   type="number"
                   required
                   min="1"
+                  max={maxDistance || undefined}
                   disabled={!isAuthorized}
                   placeholder="e.g. 120"
                   value={plannedDistance}
                   onChange={(e) => setPlannedDistance(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group flex-1">
+                <label>Max Route Distance Limit (km)</label>
+                <input
+                  type="number"
+                  min="1"
+                  disabled={!isAuthorized}
+                  placeholder="e.g. 5000"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(e.target.value)}
+                  title="Set the maximum allowed planned distance for this dispatch"
                 />
               </div>
 
@@ -341,6 +362,14 @@ function Trips({ token, userRole, user, hasPermission }) {
               </div>
             </div>
 
+            {/* Distance Exceeded Warning */}
+            {isDistanceExceeded && (
+              <div className="overload-warning-box">
+                🚫 Distance Limit Exceeded: Planned route ({plannedDistance} km) exceeds the set limit of <strong>{maxDistance} km</strong>. 
+                Please reduce the distance or increase the route limit.
+              </div>
+            )}
+
             {/* Overload Alert Warning */}
             {isOverloaded && (
               <div className="overload-warning-box">
@@ -352,7 +381,7 @@ function Trips({ token, userRole, user, hasPermission }) {
             <button 
               type="submit" 
               className="accent-action-btn w-full" 
-              disabled={!isAuthorized || isOverloaded || !selectedVehicleId || !selectedDriverId}
+              disabled={!isAuthorized || isOverloaded || isDistanceExceeded || !selectedVehicleId || !selectedDriverId}
             >
               Draft Dispatch Order
             </button>

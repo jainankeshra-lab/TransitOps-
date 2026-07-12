@@ -26,6 +26,14 @@ function Vehicles({ token, userRole, hasPermission }) {
   const [region, setRegion] = useState('Central');
   const [status, setStatus] = useState('Available');
 
+  // Document Management States
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [activeVehicle, setActiveVehicle] = useState(null);
+  const [docName, setDocName] = useState('');
+  const [docCategory, setDocCategory] = useState('Insurance');
+  const [docFile, setDocFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
   const fetchVehicles = async () => {
     try {
       setLoading(true);
@@ -146,6 +154,79 @@ function Vehicles({ token, userRole, hasPermission }) {
     }
   };
 
+  const openDocModal = (vehicle) => {
+    setActiveVehicle(vehicle);
+    setDocName('');
+    setDocCategory('Insurance');
+    setDocFile(null);
+    setShowDocModal(true);
+  };
+
+  const handleUploadDoc = async (e) => {
+    e.preventDefault();
+    if (!docName || !docCategory || !docFile) {
+      alert('Please fill in document name, category, and select a file.');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('name', docName);
+      formData.append('category', docCategory);
+      formData.append('document', docFile);
+
+      const response = await fetch(`${API_URL}/vehicles/${activeVehicle._id}/documents`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload document.');
+      }
+
+      setActiveVehicle(data);
+      setDocName('');
+      setDocFile(null);
+      
+      // Update vehicles in state
+      setVehicles(vehicles.map(v => v._id === data._id ? data : v));
+      alert('Document uploaded successfully.');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      const response = await fetch(`${API_URL}/vehicles/${activeVehicle._id}/documents/${docId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete document.');
+      }
+
+      setActiveVehicle(data);
+      setVehicles(vehicles.map(v => v._id === data._id ? data : v));
+      alert('Document deleted successfully.');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const isManager = hasPermission ? hasPermission(userRole, 'Register/Edit Fleet Vehicles') : (userRole === 'Fleet Manager');
 
   return (
@@ -228,6 +309,7 @@ function Vehicles({ token, userRole, hasPermission }) {
                 <th className="numeric">Acquisition Cost</th>
                 <th>Region</th>
                 <th>Status</th>
+                <th>Documents</th>
                 {isManager && <th style={{ textAlign: 'right' }}>Actions</th>}
               </tr>
             </thead>
@@ -251,6 +333,15 @@ function Vehicles({ token, userRole, hasPermission }) {
                       <span className={`status-badge ${statusClass}`}>
                         {vehicle.status}
                       </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="table-btn-edit"
+                        onClick={() => openDocModal(vehicle)}
+                        style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--accent-color)', padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
+                      >
+                        📁 {vehicle.documents?.length || 0} Files
+                      </button>
                     </td>
                     {isManager && (
                       <td style={{ textAlign: 'right' }}>
@@ -371,6 +462,137 @@ function Vehicles({ token, userRole, hasPermission }) {
                 <button type="submit" className="primary-btn">Save Vehicle</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle Document Management Modal */}
+      {showDocModal && activeVehicle && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: '800px', width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div>
+                <h3>📄 Document Vault: {activeVehicle.registrationNumber}</h3>
+                <p className="panel-subtitle" style={{ fontSize: '0.85rem' }}>
+                  Manage certificates, permits, and registration files for <strong>{activeVehicle.name}</strong>
+                </p>
+              </div>
+              <button 
+                type="button" 
+                className="fp-back-btn" 
+                onClick={() => setShowDocModal(false)}
+                style={{ fontSize: '1.25rem', padding: '0.25rem' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="dispatcher-split-layout" style={{ gap: '1.5rem', alignItems: 'flex-start' }}>
+              {/* Left Side: Upload Form */}
+              <div className="dispatcher-form-panel flex-1" style={{ padding: '1.25rem' }}>
+                <h4>Upload Document</h4>
+                <p className="panel-subtitle" style={{ marginBottom: '1rem' }}>Attach a scanned permit or PDF file</p>
+                <form onSubmit={handleUploadDoc} className="dispatcher-form">
+                  <div className="form-group">
+                    <label>Document Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Q3 Cargo Permit"
+                      value={docName}
+                      onChange={(e) => setDocName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
+                      <option value="Insurance">Insurance Policy</option>
+                      <option value="Registration">Vehicle Registration</option>
+                      <option value="Inspection">Safety Inspection Certificate</option>
+                      <option value="Permit">Transit Permit</option>
+                      <option value="Other">Other Document</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Choose File *</label>
+                    <input
+                      type="file"
+                      required
+                      onChange={(e) => setDocFile(e.target.files[0])}
+                      style={{ border: '1px dashed var(--border-color)', padding: '0.5rem' }}
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="accent-action-btn w-full"
+                    disabled={uploading || !docFile}
+                  >
+                    {uploading ? 'Uploading File...' : '📤 Upload Document'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Side: Current Files List */}
+              <div className="dispatcher-list-panel flex-2" style={{ padding: '1.25rem', minHeight: '300px' }}>
+                <h4>Current Files Ledger</h4>
+                <p className="panel-subtitle" style={{ marginBottom: '1rem' }}>Scanned documents stored in vault</p>
+
+                {!activeVehicle.documents || activeVehicle.documents.length === 0 ? (
+                  <div className="empty-state" style={{ padding: '3rem 1.5rem' }}>
+                    No documents uploaded for this asset yet.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="flat-table" style={{ fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Document Name</th>
+                          <th>Category</th>
+                          <th>Uploaded</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeVehicle.documents.map((doc) => (
+                          <tr key={doc._id}>
+                            <td className="font-bold">{doc.name}</td>
+                            <td>
+                              <span className="status-badge" style={{ background: 'var(--accent-light)', color: 'var(--accent-color)', border: '1px solid rgba(197, 168, 128, 0.15)' }}>
+                                {doc.category}
+                              </span>
+                            </td>
+                            <td>{new Date(doc.uploadDate).toLocaleDateString()}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="table-actions" style={{ justifyContent: 'flex-end', gap: '0.4rem' }}>
+                                <a 
+                                  href={`http://localhost:5000${doc.filePath}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="table-btn-edit"
+                                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                >
+                                  Download
+                                </a>
+                                <button
+                                  type="button"
+                                  className="table-btn-delete"
+                                  onClick={() => handleDeleteDoc(doc._id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

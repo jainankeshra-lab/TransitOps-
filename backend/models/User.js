@@ -21,9 +21,32 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: ['Fleet Manager', 'Driver', 'Safety Officer', 'Financial Analyst']
+  },
+  // Account lockout fields
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+  // Forgot password fields
+  resetToken: {
+    type: String,
+    default: null
+  },
+  resetTokenExpiry: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
+});
+
+// Virtual: is the account currently locked?
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
 // Hash password before saving
@@ -41,6 +64,20 @@ userSchema.pre('save', async function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Increment failed login attempts; lock after 5
+userSchema.methods.incLoginAttempts = async function() {
+  // If a previous lock has expired, reset
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({ $set: { loginAttempts: 1 }, $unset: { lockUntil: 1 } });
+  }
+  const updates = { $inc: { loginAttempts: 1 } };
+  // Lock for 15 minutes after 5 failed attempts
+  if (this.loginAttempts + 1 >= 5 && !this.isLocked) {
+    updates.$set = { lockUntil: new Date(Date.now() + 15 * 60 * 1000) };
+  }
+  return this.updateOne(updates);
 };
 
 const User = mongoose.model('User', userSchema);

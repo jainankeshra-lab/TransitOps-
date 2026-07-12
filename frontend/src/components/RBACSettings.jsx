@@ -2,9 +2,29 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:5000/api';
 
-function RBACSettings({ token }) {
+function RBACSettings({ token, theme, onToggleTheme }) {
   
-  // Matrix definitions matching mockup flow
+  // ─── General Settings ─────────────────────────────────────────────────
+  const [depotName, setDepotName] = useState(() =>
+    localStorage.getItem('transitops_depot_name') || ''
+  );
+  const [currency, setCurrency] = useState(() =>
+    localStorage.getItem('transitops_currency') || 'USD ($)'
+  );
+  const [distanceUnit, setDistanceUnit] = useState(() =>
+    localStorage.getItem('transitops_distance_unit') || 'Kilometers'
+  );
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('transitops_depot_name', depotName);
+    localStorage.setItem('transitops_currency', currency);
+    localStorage.setItem('transitops_distance_unit', distanceUnit);
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2500);
+  };
+
+  // ─── RBAC Matrix ──────────────────────────────────────────────────────
   const rolesInfo = [
     {
       role: 'Fleet Manager',
@@ -97,7 +117,6 @@ function RBACSettings({ token }) {
       setMatrix(data.permissions);
       setSuccessMessage('RBAC changes saved successfully to MongoDB. Live policy controls applied.');
       
-      // Dispatch custom event to notify parent App.jsx component
       window.dispatchEvent(new Event('rbac-updated'));
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
@@ -146,10 +165,80 @@ function RBACSettings({ token }) {
 
       {error && <div className="error-alert">{error}</div>}
       {successMessage && <div className="db-badge" style={{ marginBottom: '1.5rem', width: '100%', boxSizing: 'border-box' }}>✓ {successMessage}</div>}
+      {settingsSaved && <div className="auth-success-alert" style={{ marginBottom: '1.5rem' }}>✓ General settings saved successfully.</div>}
 
-      <div className="dispatcher-split-layout" style={{ marginTop: '1rem' }}>
-        {/* Left Side: Role details card list */}
+      {/* Top Two-Column Layout: General Settings | Role Descriptions */}
+      <div className="dispatcher-split-layout" style={{ marginTop: '1rem', alignItems: 'flex-start' }}>
+
+        {/* Left: General Settings Panel */}
         <div className="dispatcher-form-panel flex-1">
+          <h3>General Settings</h3>
+          <p className="panel-subtitle">Organisation-wide configuration for this TransitOps instance</p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
+            <div className="form-group">
+              <label>Depot / Organisation Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Central Depot GJ14"
+                value={depotName}
+                onChange={(e) => setDepotName(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Currency</label>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                <option value="USD ($)">USD ($)</option>
+                <option value="INR (₹)">INR (₹)</option>
+                <option value="EUR (€)">EUR (€)</option>
+                <option value="GBP (£)">GBP (£)</option>
+                <option value="AED (د.إ)">AED (د.إ)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Distance Unit</label>
+              <select value={distanceUnit} onChange={(e) => setDistanceUnit(e.target.value)}>
+                <option value="Kilometers">Kilometers (km)</option>
+                <option value="Miles">Miles (mi)</option>
+              </select>
+            </div>
+
+            {/* Light / Dark Mode Toggle */}
+            <div className="form-group">
+              <label>Interface Theme</label>
+              <div className="theme-toggle-row">
+                <button
+                  type="button"
+                  className={`theme-mode-btn ${theme === 'dark' ? 'active' : ''}`}
+                  onClick={() => onToggleTheme('dark')}
+                >
+                  🌙 Dark Mode
+                </button>
+                <button
+                  type="button"
+                  className={`theme-mode-btn ${theme === 'light' ? 'active' : ''}`}
+                  onClick={() => onToggleTheme('light')}
+                >
+                  ☀️ Light Mode
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="accent-action-btn"
+              onClick={handleSaveSettings}
+              style={{ marginTop: '0.25rem' }}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        {/* Right: Role Description cards */}
+        <div className="dispatcher-list-panel flex-1">
           <h3>Role Descriptions</h3>
           <p className="panel-subtitle">Access scopes configured for TransitOps roles</p>
 
@@ -164,86 +253,86 @@ function RBACSettings({ token }) {
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Right Side: Matrix list */}
-        <div className="dispatcher-list-panel flex-2">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3>Capabilities Grid (RBAC Matrix)</h3>
-              <p className="panel-subtitle">Toggle permissions and save to apply changes globally</p>
-            </div>
-            <button 
-              type="button" 
-              className="secondary-btn" 
-              onClick={handleResetDefaults}
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
-            >
-              Reset Defaults
-            </button>
+      {/* Bottom: Full-Width RBAC Matrix */}
+      <div className="section-panel" style={{ marginTop: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <h3>Capabilities Grid (RBAC Matrix)</h3>
+            <p className="panel-subtitle">Toggle permissions and save to apply changes globally</p>
           </div>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleResetDefaults}
+            style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
+          >
+            Reset Defaults
+          </button>
+        </div>
 
-          <div className="table-responsive" style={{ marginTop: '1.25rem' }}>
-            <table className="flat-table">
-              <thead>
-                <tr>
-                  <th>Resource Scope</th>
-                  <th style={{ textAlign: 'center' }}>Manager</th>
-                  <th style={{ textAlign: 'center' }}>Driver</th>
-                  <th style={{ textAlign: 'center' }}>Safety</th>
-                  <th style={{ textAlign: 'center' }}>Analyst</th>
+        <div className="table-responsive">
+          <table className="flat-table">
+            <thead>
+              <tr>
+                <th>Resource Scope</th>
+                <th style={{ textAlign: 'center' }}>Manager</th>
+                <th style={{ textAlign: 'center' }}>Driver</th>
+                <th style={{ textAlign: 'center' }}>Safety</th>
+                <th style={{ textAlign: 'center' }}>Analyst</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((perm, idx) => (
+                <tr key={idx}>
+                  <td className="font-bold" style={{ fontSize: '0.85rem' }}>{perm.feature}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={perm.manager}
+                      onChange={() => handleToggle(idx, 'manager')}
+                      style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
+                    />
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={perm.driver}
+                      onChange={() => handleToggle(idx, 'driver')}
+                      style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
+                    />
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={perm.safety}
+                      onChange={() => handleToggle(idx, 'safety')}
+                      style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
+                    />
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={perm.analyst}
+                      onChange={() => handleToggle(idx, 'analyst')}
+                      style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
+                    />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {matrix.map((perm, idx) => (
-                  <tr key={idx}>
-                    <td className="font-bold" style={{ fontSize: '0.85rem' }}>{perm.feature}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={perm.manager} 
-                        onChange={() => handleToggle(idx, 'manager')}
-                        style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={perm.driver} 
-                        onChange={() => handleToggle(idx, 'driver')}
-                        style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={perm.safety} 
-                        onChange={() => handleToggle(idx, 'safety')}
-                        style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={perm.analyst} 
-                        onChange={() => handleToggle(idx, 'analyst')}
-                        style={{ cursor: 'pointer', width: '1.1rem', height: '1.1rem', accentColor: 'var(--accent-color)' }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button 
-              type="button" 
-              className="accent-action-btn" 
-              onClick={handleSaveChanges}
-            >
-              Save Configuration
-            </button>
-          </div>
+        <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="accent-action-btn"
+            onClick={handleSaveChanges}
+          >
+            Save RBAC Configuration
+          </button>
         </div>
       </div>
     </div>

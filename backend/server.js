@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './db.js';
+import cron from 'node-cron';
+import { sendLicenseExpiryAlerts } from './utils/emailService.js';
 
 // Models for auto-seeding check
 import User from './models/User.js';
@@ -22,14 +24,21 @@ import expensesRouter from './routes/expenses.js';
 import reportsRouter from './routes/reports.js';
 import rbacRouter from './routes/rbac.js';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Enable CORS and parsing body
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes registration
 app.use('/api/auth', authRouter);
@@ -63,8 +72,19 @@ const startServer = async () => {
     console.error('Error running migrations:', err.message);
   }
   
+  // Schedule daily cron job for expiring licenses check (at midnight)
+  cron.schedule('0 0 * * *', async () => {
+    console.log('⏰ Scheduled Task: Checking for expiring driver licenses...');
+    try {
+      const logs = await sendLicenseExpiryAlerts();
+      console.log(`✅ Expiry check finished. Alerts sent: ${logs.length}`);
+    } catch (err) {
+      console.error('❌ Expiry check cron job failed:', err.message);
+    }
+  });
+
   app.listen(PORT, () => {
-    console.log(`TransitOps Backend running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    console.log(`TransitOps Backend running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
 };
 

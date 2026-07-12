@@ -4,6 +4,7 @@ const API_URL = 'http://localhost:5000/api';
 
 function Drivers({ token, userRole, hasPermission }) {
   const [drivers, setDrivers] = useState([]);
+  const [tripCounts, setTripCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -20,6 +21,7 @@ function Drivers({ token, userRole, hasPermission }) {
   const [licenseCat, setLicenseCat] = useState('Commercial');
   const [licenseExpiry, setLicenseExpiry] = useState('');
   const [contact, setContact] = useState('');
+  const [email, setEmail] = useState('');
   const [safetyScore, setSafetyScore] = useState(100);
   const [status, setStatus] = useState('Available');
 
@@ -34,10 +36,27 @@ function Drivers({ token, userRole, hasPermission }) {
       if (filterStatus) params.push(`status=${filterStatus}`);
       const query = params.length > 0 ? '?' + params.join('&') : '';
 
-      const response = await fetch(`${API_URL}/drivers${query}`, { headers });
-      if (!response.ok) throw new Error('Failed to load driver profiles.');
-      const data = await response.json();
-      setDrivers(data);
+      const [driversRes, tripsRes] = await Promise.all([
+        fetch(`${API_URL}/drivers${query}`, { headers }),
+        fetch(`${API_URL}/trips`, { headers })
+      ]);
+
+      if (!driversRes.ok) throw new Error('Failed to load driver profiles.');
+      const driversData = await driversRes.json();
+      setDrivers(driversData);
+
+      // Compute completed trips per driver
+      if (tripsRes.ok) {
+        const tripsData = await tripsRes.json();
+        const counts = {};
+        tripsData.forEach(trip => {
+          if (trip.status === 'Completed' && trip.driver) {
+            const driverId = typeof trip.driver === 'object' ? trip.driver._id : trip.driver;
+            counts[driverId] = (counts[driverId] || 0) + 1;
+          }
+        });
+        setTripCounts(counts);
+      }
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -57,6 +76,7 @@ function Drivers({ token, userRole, hasPermission }) {
     setLicenseCat('Commercial');
     setLicenseExpiry('');
     setContact('');
+    setEmail('');
     setSafetyScore(100);
     setStatus('Available');
     setShowModal(true);
@@ -74,6 +94,7 @@ function Drivers({ token, userRole, hasPermission }) {
     setLicenseExpiry(dateStr);
     
     setContact(driver.contact);
+    setEmail(driver.email || '');
     setSafetyScore(driver.safetyScore);
     setStatus(driver.status);
     setShowModal(true);
@@ -98,6 +119,7 @@ function Drivers({ token, userRole, hasPermission }) {
         licenseCategory: licenseCat,
         licenseExpiry,
         contact,
+        email,
         safetyScore: Number(safetyScore),
         status
       };
@@ -159,6 +181,34 @@ function Drivers({ token, userRole, hasPermission }) {
 
   const isAuthorized = hasPermission ? hasPermission(userRole, 'Register/Edit Drivers Profiles') : (userRole === 'Fleet Manager' || userRole === 'Safety Officer');
 
+  const [alerting, setAlerting] = useState(false);
+  const [alertingFeedback, setAlertingFeedback] = useState('');
+
+  const handleTriggerAlerts = async () => {
+    try {
+      setAlerting(true);
+      setAlertingFeedback('');
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
+      const res = await fetch(`${API_URL}/drivers/send-expiry-alerts`, {
+        method: 'POST',
+        headers
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to trigger alerts');
+      
+      const sentCount = data.logs ? data.logs.filter(l => l.success).length : 0;
+      setAlertingFeedback(`✉️ Checked! Dispatched ${sentCount} expiration warning emails.`);
+      setTimeout(() => setAlertingFeedback(''), 5000);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAlerting(false);
+    }
+  };
+
   return (
     <div className="view-container">
       {/* Top Header Controls */}
@@ -167,15 +217,31 @@ function Drivers({ token, userRole, hasPermission }) {
           <h2>Drivers & Safety Profiles</h2>
           <p className="subtitle">Track license expirations, compliance indicators, and safety scores</p>
         </div>
-        <button 
-          className="accent-action-btn"
-          disabled={!isAuthorized}
-          onClick={openAddModal}
-          title={!isAuthorized ? "Only Fleet Managers or Safety Officers can register drivers" : ""}
-        >
-          + Add Driver
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button 
+            className="secondary-btn"
+            disabled={!isAuthorized || alerting}
+            onClick={handleTriggerAlerts}
+            title={!isAuthorized ? "Only Fleet Managers or Safety Officers can trigger alerts" : ""}
+          >
+            {alerting ? 'Sending Alert Emails...' : '✉️ Send Expiry Alerts'}
+          </button>
+          <button 
+            className="accent-action-btn"
+            disabled={!isAuthorized}
+            onClick={openAddModal}
+            title={!isAuthorized ? "Only Fleet Managers or Safety Officers can register drivers" : ""}
+          >
+            + Add Driver
+          </button>
+        </div>
       </div>
+
+      {alertingFeedback && (
+        <div className="auth-success-alert" style={{ marginBottom: '1.25rem' }}>
+          {alertingFeedback}
+        </div>
+      )}
 
       {!isAuthorized && (
         <div className="info-banner warning-banner">
@@ -222,7 +288,9 @@ function Drivers({ token, userRole, hasPermission }) {
                 <th>License Expiry</th>
                 <th>Compliance Status</th>
                 <th>Contact</th>
+                <th>Email</th>
                 <th className="numeric">Safety Score</th>
+                <th className="numeric">Trips Done</th>
                 <th>Status</th>
                 {isAuthorized && <th style={{ textAlign: 'right' }}>Actions</th>}
               </tr>
@@ -255,8 +323,20 @@ function Drivers({ token, userRole, hasPermission }) {
                       </span>
                     </td>
                     <td>{driver.contact}</td>
+                    <td style={{ fontSize: '0.8rem' }}>
+                      {driver.email ? (
+                        <a href={`mailto:${driver.email}`} style={{ color: 'var(--accent-color)', textDecoration: 'none' }}>
+                          {driver.email}
+                        </a>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
                     <td className={`numeric font-bold ${safetyColorClass}`}>
                       {driver.safetyScore} / 100
+                    </td>
+                    <td className="numeric">
+                      <span className="trips-done-badge">
+                        {tripCounts[driver._id] || 0}
+                      </span>
                     </td>
                     <td>
                       <span className={`status-badge ${statusClass}`}>
@@ -340,6 +420,15 @@ function Drivers({ token, userRole, hasPermission }) {
                     placeholder="e.g. +1 555-0100"
                     value={contact}
                     onChange={(e) => setContact(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. driver@transitops.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <div className="form-group">

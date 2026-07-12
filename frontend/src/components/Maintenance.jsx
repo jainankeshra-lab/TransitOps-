@@ -14,6 +14,9 @@ function Maintenance({ token, userRole, hasPermission }) {
   const [cost, setCost] = useState('');
   const [startDate, setStartDate] = useState('');
 
+  // Today's date string for min date validation (YYYY-MM-DD)
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -53,6 +56,12 @@ function Maintenance({ token, userRole, hasPermission }) {
     e.preventDefault();
     if (!selectedVehicleId || !description || cost === undefined) {
       alert('Please fill in vehicle, description, and repair cost.');
+      return;
+    }
+
+    // Date must be today or in the future
+    if (startDate && startDate < todayStr) {
+      alert('Repair start date cannot be in the past. Please select today or a future date.');
       return;
     }
 
@@ -184,9 +193,15 @@ function Maintenance({ token, userRole, hasPermission }) {
                 <input
                   type="date"
                   disabled={!isManager}
+                  min={todayStr}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
+                {startDate && startDate < todayStr && (
+                  <span style={{ color: 'var(--status-retired)', fontSize: '0.78rem', marginTop: '0.3rem', display: 'block' }}>
+                    ⚠️ Date cannot be in the past.
+                  </span>
+                )}
               </div>
             </div>
 

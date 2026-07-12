@@ -85,3 +85,51 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ── Light Theme ─────────────────────────────────────────────────────── */
+[data-theme='light'] {
+  --bg-color: #f0f2f5;
+  --surface-color: #ffffff;
+  --surface-header: #f8f9fb;
+  --border-color: #e2e6ed;
+  --border-focus: #c5a880;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  --accent-color: #a07840;
+  --accent-hover: #8a6432;
+  --accent-light: rgba(160, 120, 64, 0.08);
+
+  --status-available: #0f766e;
+  --status-available-bg: rgba(15, 118, 110, 0.08);
+  --status-available-border: rgba(15, 118, 110, 0.3);
+
+  --status-trip: #1d4ed8;
+  --status-trip-bg: rgba(29, 78, 216, 0.08);
+  --status-trip-border: rgba(29, 78, 216, 0.3);
+
+  --status-shop: #b45309;
+  --status-shop-bg: rgba(180, 83, 9, 0.08);
+  --status-shop-border: rgba(180, 83, 9, 0.3);
+
+  --status-retired: #dc2626;
+  --status-retired-bg: rgba(220, 38, 38, 0.08);
+  --status-retired-border: rgba(220, 38, 38, 0.3);
+
+  --shadow-flat: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='light'] body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-track {
+  background: var(--surface-color);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}

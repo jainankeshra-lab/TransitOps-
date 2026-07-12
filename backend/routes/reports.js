@@ -228,4 +228,67 @@ router.get('/export-csv', protect, checkPermission('Export Report Spreadsheets (
   }
 });
 
+// @desc    Get Monthly Revenue aggregated from completed trips (last 12 months)
+// @route   GET /api/reports/monthly-revenue
+// @access  Private
+router.get('/monthly-revenue', protect, checkPermission('View Financial Yields & ROI Reports'), async (req, res) => {
+  try {
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+    twelveMonthsAgo.setDate(1);
+    twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+    const pipeline = [
+      {
+        $match: {
+          status: 'Completed',
+          updatedAt: { $gte: twelveMonthsAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$updatedAt' },
+            month: { $month: '$updatedAt' }
+          },
+          totalRevenue: { $sum: '$revenue' },
+          totalTrips: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { '_id.year': 1, '_id.month': 1 }
+      }
+    ];
+
+    const results = await Trip.aggregate(pipeline);
+
+    // Build full 12-month array (fill missing months with 0)
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      months.push({
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
+        totalRevenue: 0,
+        totalTrips: 0
+      });
+    }
+
+    results.forEach(r => {
+      const match = months.find(m => m.year === r._id.year && m.month === r._id.month);
+      if (match) {
+        match.totalRevenue = r.totalRevenue;
+        match.totalTrips = r.totalTrips;
+      }
+    });
+
+    res.json(months);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
+
